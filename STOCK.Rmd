@@ -1,0 +1,185 @@
+---
+title: "stock"
+author: "Hyeonseo Kim"
+date: "2025-10-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+
+## 데이터 불러오기 
+DJ <- read_csv("DATA/다우존스 과거 데이터.csv")
+STOXX <- read_csv("DATA/유로 스톡스 50 과거 데이터.csv")
+KOSPI <- read_csv("DATA/코스피지수 과거 데이터.csv")
+```
+
+```{r}
+## 수익률을 소수로 변환하는 함수
+convert_return <- function(x){
+  x %>%
+    str_replace_all("%", "") %>%
+    as.numeric() / 100
+}
+```
+
+```{r}
+## Dow Jones
+dj <- DJ %>%
+  select(Date = 1, Close = 2, Ret_raw = 7) %>%
+  mutate(
+    Date   = ymd(Date),
+    Return = convert_return(Ret_raw),
+    Index  = "Dow Jones") %>%
+  select(Date, Close, Return, Index) %>%
+  arrange(Date)
+```
+
+```{r}
+## Euro STOXX 50
+stoxx <- STOXX %>%
+  select(Date = 1, Close = 2, Ret_raw = 7) %>%
+  mutate(
+    Date   = ymd(Date),
+    Return = convert_return(Ret_raw),
+    Index  = "Euro STOXX 50") %>%
+  select(Date, Close, Return, Index) %>%
+  arrange(Date)
+```
+
+```{r}
+## KOSPI
+kospi <- KOSPI %>%
+  select(Date = 1, Close = 2, Ret_raw = 7) %>%
+  mutate(
+    Date   = ymd(Date),
+    Return = convert_return(Ret_raw),
+    Index  = "KOSPI") %>%
+  select(Date, Close, Return, Index) %>%
+  arrange(Date)
+```
+
+```{r}
+dim(dj)
+dim(stoxx)
+dim(kospi)
+```
+```{r}
+## 월초 데이터가 아닌 데이터 제거 
+dj <- dj %>%
+  filter(day(Date) == 1)  # 0 또는 NA 제거
+```
+
+```{r}
+## 전체 데이터
+df <- bind_rows(dj, stoxx, kospi)
+```
+
+```{r}
+ggplot(dj, aes(x = Date, y = Close)) +
+  geom_line(linewidth = 0.5) +
+  labs(title = "Dow Jones Monthly Close",
+       x = "", y = "Close") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(stoxx, aes(x = Date, y = Close)) +
+  geom_line(linewidth = 0.5) +
+  labs(title = "Euro STOXX 50 Monthly Close",
+       x = "", y = "Close") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(kospi, aes(x = Date, y = Close)) +
+  geom_line(linewidth = 0.5) +
+  labs(title = "KOSPI Monthly Close",
+       x = "", y = "Close") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(kospi, aes(x = Date, y = Return)) +
+  geom_line(linewidth = 0.5) +
+  labs(title = "KOSPI Monthly Return",
+       x = "", y = "Return") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(kospi, aes(x = Date, y = Return, fill = Return > 0)) +
+  geom_col() +
+  scale_fill_manual(values=c("red","blue"), labels=c("Up","Down")) +
+  scale_y_continuous(labels=scales::percent_format()) +
+  labs(title = "KOSPI Monthly Return",
+       x = "", y = "Return", fill="Direction") +
+  theme_minimal()
+```
+
+```{r}
+extreme <- kospi %>%
+  filter(Return >= 0.1 | Return <= -0.1)
+extreme
+
+extreme %>%
+  mutate(Year = year(Date)) %>%
+  count(Year)
+
+extreme_plus <- extreme %>%
+  filter(Return >= 0.1)
+extreme_plus
+
+extreme_minus <- extreme %>%
+  filter(Return <= -0.1)
+extreme_minus
+```
+
+```{r}
+library(forecast)
+library(FinTS)   # ARCH
+library(rugarch) # GARCH
+
+## 시계열 데이터
+ts_r <- kospi %>%
+  arrange(Date) %>%
+  pull(Return) %>%
+  ts(frequency = 12)
+
+## ACF/PACF
+par(mfrow=c(1,2))
+acf(ts_r, main="ACF")
+pacf(ts_r, main="PACF")
+par(mfrow=c(1,1))
+
+## ARMA 모형 선택
+fit_auto <- auto.arima(ts_r, 
+                       stationary = TRUE, 
+                       seasonal = FALSE,
+                       max.p = 5, 
+                       max.q = 5)
+print(fit_auto)
+
+## Ljung-Box test
+lj <- Box.test(residuals(fit_auto), lag = 12, type = "Ljung-Box")
+print(lj)
+
+## ARCH test
+
+arch <- ArchTest(residuals(fit_auto))
+print(arch)
+
+## GARCH(1,1)
+spec <- ugarchspec(
+  variance.model = list(model="sGARCH", garchOrder=c(1,1)),
+  mean.model     = list(armaOrder=c(1,1), include.mean=TRUE),
+  distribution.model="std"
+)
+
+fit_garch <- ugarchfit(spec, ts_r)
+show(fit_garch)
+```

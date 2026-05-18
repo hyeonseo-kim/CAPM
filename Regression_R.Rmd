@@ -1,0 +1,865 @@
+---
+title: "Regression_R"
+author: "Hyeonseo Kim"
+date: "2024-06-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## ---- Chapter 1 
+
+
+## ---- ch1.toluca -------
+toluca<-read.table(
+  "http://www.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%201%20Data%20Sets/CH01TA01.txt")
+#toluca<-read.table("toluca.txt")
+colnames(toluca)<-c("X","Y")
+head(toluca)
+dim(toluca)
+summary(toluca)
+
+
+## ---- ch1.toluca.plot -------
+
+plot(Y~X, data=toluca)
+
+## ---- ch1.toluca.ggplot ------
+library(ggplot2)
+toluca.plot <- ggplot(data = toluca, aes(x=X, y=Y), alpha = I(0.5)) + geom_point()
+print(toluca.plot)
+
+## ---- ch1.toluca.lm ----
+
+lm.toluca<-lm(Y~X, data=toluca)
+lm.toluca
+
+summary(lm.toluca)
+
+## ---- ch1.toluca.fitted.plot -------
+b0<-coef(lm.toluca)[1]
+b1<-coef(lm.toluca)[2]
+plot(Y~X, data=toluca)
+abline(a=b0, b=b1)
+
+
+## ---- ch1.toluca.fitted.ggplot -------
+
+coef.toluca <- coef(lm.toluca)
+toluca.fitted.line <- toluca.plot + 
+  geom_abline(intercept = coef.toluca[1], slope = coef.toluca[2])
+
+fitted.toluca<- fitted(lm.toluca)
+
+toluca.fitted.line + 
+  geom_segment(aes(x = X, xend = X, y = Y, yend = fitted.toluca), col = "blue", alpha = 0.5)
+
+
+
+
+## ---- Chapter 2
+
+
+## ----ch2.toluca-coef-sampling ---------------------------------------
+n<-dim(toluca)[1]
+tt<-seq(-12,12,length=500)
+t.density<-dt(tt,df=n-2)
+
+t0 = summary(lm.toluca)$coef[1,3]
+t1 = summary(lm.toluca)$coef[2,3]
+par(mfrow=c(1,2))
+plot(t.density~tt, type="l", main="t-distribution and t0")
+abline(v=t0)
+plot(t.density~tt, type="l", main="t-distribution and t1")
+abline(v=t1)
+
+## ----ch2.toluca.coef.interval ---------------
+n<-nrow(toluca)
+n
+
+summary(lm.toluca)$coef
+
+## ----ch2.toluca.coef.interval.2 ---------------
+
+summary(lm.toluca)$coef[,1] - qt(0.95, n-2)* summary(lm.toluca)$coef[,2]
+summary(lm.toluca)$coef[,1] + qt(0.95, n-2)* summary(lm.toluca)$coef[,2]
+
+
+confint(lm.toluca, level= 0.9)
+
+confint(lm.toluca)
+
+## ----ch2.toluca-interval-1----------------------------------------------
+
+library(ggplot2)
+toluca.plot <- ggplot(data = toluca, aes(x=X, y=Y), alpha = I(0.5)) + geom_point()
+print(toluca.plot)
+
+## ----ch2.toluca-interval-2----------------------------------------------
+
+
+coef.toluca <- coef(lm.toluca)
+toluca.fitted.line <- toluca.plot + 
+  geom_abline(intercept = coef.toluca[1], slope = coef.toluca[2])
+
+## ----ch2.toluca-interval-3----------------------------------------------
+conf.95<-cbind(toluca,predict.lm(lm.toluca, newdata=toluca, se.fit=TRUE,
+                                 interval="confidence", data=toluca))
+toluca.fitted.line+
+  geom_ribbon(data=conf.95,aes(ymin=fit.lwr,ymax=fit.upr),alpha=0.3)+
+  ggtitle("95% Confidence interval for E(y)") 
+
+
+## ----ch2.toluca-interval-4----------------------------------------------
+pred.95<-cbind(toluca,predict.lm(lm.toluca, newdata=toluca, se.fit=TRUE,
+                                 interval="predict", data=toluca))
+
+toluca.fitted.line+
+  geom_ribbon(data=pred.95,aes(ymin=fit.lwr,ymax=fit.upr),alpha=0.3)+
+  ggtitle("Prediction interval for future y") 
+
+
+## ----ch2.toluca-anova----------------------------------------------
+anova(lm.toluca)
+
+
+
+## ----ch2.toluca-R2----------------------------------------------
+
+
+R2<-summary(lm.toluca)$r.squared
+
+R2 
+
+anova(lm.toluca)
+anova(lm.toluca)[["Sum Sq"]]
+
+anova(lm.toluca)[["Sum Sq"]][1]/sum(anova(lm.toluca)[["Sum Sq"]])
+
+sqrt(R2)
+cor(toluca$X,toluca$Y)
+
+
+
+## ---- Chapter 3
+
+## ----ch3.toluca.hist -----
+
+library(ggplot2)
+p<-ggplot(data=toluca, aes(x=X)) +xlab("Lot size")
+
+p + geom_histogram(binwidth=10) 
+
+p + geom_boxplot() + coord_flip() 
+
+
+
+
+## ----ch3.toluca-residual----------------------------------------------
+
+e = residuals(lm.toluca)
+MSE<-anova(lm.toluca)[2,3]
+e.star = e/sqrt(MSE) ## semi-studentized residual
+
+plot(e.star~X, data=toluca, ylab="semi-studentized residual")
+abline(h=0,col="grey")
+
+qplot(X, e.star, data=toluca, ylab="semi-studentized residual",
+      alpha = I(0.5)) + geom_hline(aes(yintercept=0),col="grey")+
+      ggtitle("Residual plot") 
+
+## ----ch3.toluca-pp----------------------------------------------
+qqnorm(e.star, ylab="Semi-studentized Residuals", 
+       xlab="Normal Scores", main="Toluca example") 
+qqline(e.star)
+
+ggplot() + geom_qq(aes(sample=e.star))+geom_abline()+
+  ggtitle("Normal probability plot") 
+
+## ----ch3.toluca-pp2----------------------------------------------
+x.heavy<-rt(100,3) ## t(3)
+ggplot()+geom_qq(aes(sample=x.heavy))+geom_abline()+
+  ggtitle("When data is from Heavy-tailed distribution") 
+
+x.right<-rgamma(100,1,1)
+ggplot()+geom_qq(aes(sample=x.right))+geom_abline()+
+  ggtitle("When data is from Right-skewed distribution") 
+
+
+
+## ----ch3.toluca-autoplot ----------
+library(ggfortify)
+autoplot(lm.toluca)
+
+
+## ----ch3.bank ------
+
+bank<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%203%20Data%20Sets/CH03TA04.txt")
+colnames(bank)<-c("X","Y")
+
+lm.bank<-lm(Y~X, data=bank)
+
+summary(lm.bank)
+
+
+## ----ch3.bank-ggplot -----
+
+library(ggplot2)
+bank.plot <- ggplot(data = bank, aes(x=X, y=Y), alpha = I(0.5)) + geom_point()
+
+coef.bank <- coef(lm.bank)
+bank.plot + 
+  geom_abline(intercept = coef.bank[1], slope = coef.bank[2]) +
+  scale_x_continuous (limits=c(50,250)) +
+  scale_y_continuous(limits=c(0,200))
+
+## ----ch3.bank-ftest1 -----
+
+library(dplyr)
+
+bank<-bank %>%
+  group_by(X) %>%
+  mutate(Y_mean = mean(Y)) %>%
+  ungroup()
+
+bank$Y_hat <- predict(lm.bank,newdata=bank)
+
+bank
+## ----ch3.bank-ftest2 -----
+SSE.F<-sum((bank$Y - bank$Y_mean)^2)
+SSE.F
+
+SSE.R<-sum((bank$Y - bank$Y_hat)^2)
+SSE.R 
+
+F<- ((SSE.R - SSE.F)/(9-5)) /(SSE.F/5)
+F
+qf(0.99, 4, 5) # critical value 
+
+
+## ----ch3.plasma -----
+
+
+
+plasma<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%203%20Data%20Sets/CH03TA08.txt")
+colnames(plasma)<-c("X","Y", "logY")
+
+
+head(plasma)
+
+## ----ch3.plasma-ggplot -----
+
+lm0<-lm(Y~X, data=plasma); autoplot(lm0)
+
+lm1<-lm(logY~X, data=plasma); autoplot(lm1)
+
+
+## ----ch3.plasma-boxcox1 ---- 
+
+library(MASS)
+
+# Find optimal lambda for Box-Cox transformation 
+bc <- boxcox(Y ~ X, data=plasma)
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+plasma$Y_transformed <- ((plasma$Y^lambda - 1) / lambda)
+
+## ----ch3.plasma-boxcox2 ---- 
+plot(plasma$Y~plasma$X)
+
+## ----ch3.plasma-boxcox3 ---- 
+plot(plasma$Y_transformed~plasma$X)
+
+## ----ch3.plasma-boxcox4 ---- 
+lm.boxcox<-lm(Y_transformed~X, data=plasma)
+
+summary(lm.boxcox)
+
+## ----ch3.plasma-boxcox5 ----
+library(ggplot2)
+
+ggplot(data = plasma, aes(x=X, y=Y_transformed), alpha = I(0.5)) + 
+  geom_point() + 
+  geom_abline(intercept = coef(lm.boxcox)[1], slope = coef(lm.boxcox)[2])
+
+
+
+## ---- Chapter 5
+
+
+## -----ch5.toluca.mat ------
+
+X<-cbind(1,toluca$X)
+head(X)
+Y<-toluca$Y
+head(Y)
+
+## -----ch5.toluca.mat2 ------
+
+t(X)%*%X
+t(X)%*%Y
+b<-solve(t(X)%*%X)%*%t(X)%*%Y
+b
+
+
+## -----ch5.toluca.hat ------
+
+Y.hat<-X%*%b 
+head(Y.hat) 
+
+H<-X%*%solve(t(X)%*%X)%*%t(X)
+dim(H)
+head(H%*%Y)
+
+
+
+## ---- Chapter 6 
+
+## ----ch6.dwaine ------
+
+dwaine<-read.table(
+  "http://www.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%206%20Data%20Sets/CH06FI05.txt")
+names(dwaine)<-c("X1","X2","Y")
+head(dwaine)
+
+## ---- ch6.dwaine-pairs -------
+
+pairs(dwaine)
+
+## ---- ch6.dwaine-pairs2 -------
+
+library(ggplot2)
+library(GGally)
+ggpairs(dwaine)
+
+## ---- ch6.dwaine-3d ---------
+
+library(plotly)
+
+p <- plot_ly(dwaine, x = ~X1, y = ~X2, z = ~Y,
+             colors = c('#BF382A')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'X1'),
+                      yaxis = list(title = 'X2'),
+                      zaxis = list(title = 'Y')))
+p
+
+
+## ---- ch6.dwaine-lm --------------
+Y<-dwaine$Y
+
+X<-cbind(1,dwaine$X1, dwaine$X2)
+
+bhat<-solve(t(X)%*%X)%*%t(X)%*%Y
+bhat 
+
+
+## ---- ch6.dwaine-lm2 --------------
+lm.dwaine<- lm(Y~X1+X2,data=dwaine)
+summary(lm.dwaine)
+
+
+## ---- ch6.dwaine-yhat --------------
+Yhat<-fitted(lm.dwaine)
+
+Yhat.1<-X%*% bhat 
+
+H<-X%*%solve(t(X)%*%X)%*%t(X)
+
+Yhat.2<-H%*%Y
+
+head(cbind(Yhat, Yhat.1, Yhat.2))
+
+plot(Yhat~Y)
+
+## ---- ch6.dwaine-residual --------------
+Y-Yhat
+
+residuals(lm.dwaine)
+
+## ---- ch6.dwaine-residual2 --------------
+library(ggfortify)
+autoplot(lm.dwaine)
+
+
+## ---- ch6.dwaine-anova --------------
+
+anova(lm.dwaine)
+
+## ---- ch6.dwaine-lm-summary --------------
+summary(lm.dwaine)
+
+
+
+
+## ---- ch6.dwaine-prediction --------------
+
+head(predict(lm.dwaine, newdata=dwaine, interval = "confidence"))
+
+head(predict(lm.dwaine, newdata=dwaine, interval = "prediction"))
+
+# for a specific subject 
+
+predict.lm(lm.dwaine, newdata=data.frame(X1=65.4, X2=17.6), interval="confidence", level=0.95)
+
+predict.lm(lm.dwaine, newdata=data.frame(X1=65.4, X2=17.6), interval="prediction", level=0.95)
+
+
+
+## ---- Chapter 7
+
+
+##---- ch7.bodyfat ------
+bodyfat<-read.table(
+  "https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%207%20Data%20Sets/CH07TA01.txt")
+names(bodyfat)<-c("X1","X2","X3","Y")
+head(bodyfat)
+tail(bodyfat)
+
+
+##---- ch7.bodyfat-pair ------
+
+library(ggplot2)
+library(GGally)
+ggpairs(bodyfat)
+
+
+##---- ch7.bodyfat-lm1 ------
+
+lm1<-lm(Y~X1, data=bodyfat)
+coef(summary(lm1))
+anova(lm1)
+
+##---- ch7.bodyfat-lm2 ------
+
+lm2<-lm(Y~X2, data=bodyfat)
+coef(summary(lm2))
+anova(lm2)
+
+##---- ch7.bodyfat-lm3 ------
+
+lm3<-lm(Y~X1+X2, data=bodyfat)
+coef(summary(lm3))
+anova(lm3)
+
+##---- ch7.bodyfat-lm4 ------
+
+lm4<-lm(Y~X1+X2+X3, data=bodyfat)
+coef(summary(lm4))
+anova(lm4)
+
+
+##---- ch7.bodyfat-anova ------
+
+anova(lm4)
+
+##---- ch7.bodyfat-glt ------
+anova(lm3, lm4)
+
+##---- ch7.bodyfat-ttest ------
+#summary(lm4)
+coef(summary(lm4))
+
+coef(summary(lm4))[4,3]^2 ## = f statistic
+
+
+##---- ch7.bodyfat-glt2 ------
+anova(lm1, lm4)
+
+
+## ----- ch7.bodyfat-other ----- 
+
+bodyfat$X12<-bodyfat$X1+bodyfat$X2
+
+lm5<-lm(Y~X12+X3, data=bodyfat)
+
+anova(lm5, lm4)
+
+library(gmodels)
+glh.test(lm4, cm=c(0, 1, -1, 0))
+
+
+
+
+## ----- ch7.dwaine-lm -----
+
+
+lm.dwaine <- lm(Y~X1+X2, data=dwaine)
+lm.dwaine
+
+## ----- ch7.dwaine-lm2 -----
+lm(scale(Y)~0+scale(X1)+scale(X2), data=dwaine)
+
+
+Rxx<-cor(cbind(dwaine$X1, dwaine$X2))
+Ryx<-rbind(cor(dwaine$Y, dwaine$X1), cor(dwaine$Y, dwaine$X2))
+solve(Rxx)%*%Ryx
+
+
+## ---- Chapter 8 
+
+## ----ch8.powercell -----
+powercell<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%208%20Data%20Sets/CH08TA01.txt")
+
+names(powercell)<-c("Y","X1","X2")
+powercell$x1<-(powercell$X1-1)/0.4
+powercell$x2<-(powercell$X2-20)/10
+
+powercell
+
+## ----ch8.power-lm -----
+
+fit<-lm(Y~x1+x2+I(x1^2)+I(x2^2)+x1*x2, data=powercell)
+summary(fit)
+
+## ----ch8.power-plot ----
+library(ggplot2)
+library(ggfortify)
+
+autoplot(fit)
+
+## ----ch8.power-anova ----
+
+anova(fit)
+
+## ----ch8.power-ftest ----
+fit.r<-lm(Y~x1+x2, data=powercell)
+anova(fit.r, fit)
+
+## ----ch8.power-reduce ----
+summary(fit.r)
+
+
+
+## ----ch8.bodyfat-ia ----
+bodyfat$x1<-scale(bodyfat$X1, scale=FALSE)
+bodyfat$x2<-scale(bodyfat$X2, scale=FALSE)
+bodyfat$x3<-scale(bodyfat$X3, scale=FALSE)
+
+fit.f<-lm(Y~x1+x2+x3+x1:x2+x1:x3+x2:x3, data=bodyfat)
+fit.f
+
+## ----ch8.bodyfat-anova ----
+fit.r<-lm(Y~x1+x2+x3, data=bodyfat)
+
+anova(fit.r, fit.f)
+
+
+## ----ch8.insurance -----
+insurance<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%208%20Data%20Sets/CH08TA02.txt")
+names(insurance)<-c("Y","X1","X2")
+insurance$X2<-as.factor(insurance$X2)
+head(insurance)
+
+## ----ch8.insurance-plot -----
+library(ggplot2)
+
+g<- ggplot(insurance, aes(x=X1, y=Y, colour = X2)) + geom_point()
+g
+
+## ----ch8.insurance-lm -----
+fit<-lm(Y~X1+X2, data=insurance)
+summary(fit)
+
+## ----ch8.insurance-abline -----
+g+geom_smooth(method=lm, se=FALSE)
+
+
+## ----ch8.insurance-anova -----
+anova(fit)
+
+## ----ch8.insurance-ci -----
+summary(fit)$coef
+summary(fit)$coef[2,1] - qt(0.975, 17)*summary(fit)$coef[2,2] 
+summary(fit)$coef[2,1] + qt(0.975, 17)*summary(fit)$coef[2,2] 
+confint(fit)
+
+## ----ch8.insurance-fit2 -----
+fit2<-lm(Y~X1*X2, data=insurance)
+summary(fit2)
+
+
+## ----ch8.soap -----
+soap<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%208%20Data%20Sets/CH08TA05.txt")
+names(soap)<-c("Y","X1","X2")
+soap$X2<-as.factor(soap$X2)
+head(soap)
+
+## ----ch8.soap-plot -----
+g<- ggplot(soap, aes(x=X1, y=Y, colour = X2)) + geom_point()
+g+geom_smooth(method=lm, se=FALSE)
+
+## ----ch8.soap-lm -----
+fit<-lm(Y~X1*X2, data=soap)
+summary(fit)
+
+## ----ch8.soap-anova1 -----
+fit1<-lm(Y~X1, data=soap)
+anova(fit1,fit)
+
+## ----ch8.soap-anova2 -----
+fit2<-lm(Y~X1+X2, data=soap)
+anova(fit2, fit)
+
+
+
+## ---- Chapter 9
+
+
+
+## ---- ch9.surgical ---------------
+
+tab9.1<-read.table("http://www.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%209%20Data%20Sets/CH09TA01.txt")
+names(tab9.1)<-c("X1","X2","X3","X4","X5","X6","X7","X8","Y","logY")
+
+head(tab9.1)
+tail(tab9.1)
+
+dim(tab9.1)
+
+
+## ---- ch9.surgical-hist -----
+
+par(mfrow=c(1,2))
+hist(tab9.1$Y)
+hist(tab9.1$logY)
+
+## ---- ch9.surgical-corr --------
+
+## Multivariate correlations
+cor(tab9.1[,c('logY','X1','X2','X3','X4')])
+
+
+## ---- ch9.surgical-pairs
+
+## Scatter plot matrix
+library(ggplot2); library(GGally)
+ggpairs(tab9.1[,c('logY','X1','X2','X3','X4')])
+
+## ---- ch9.surgical-lm1 --------
+
+reg1<-lm(logY~X1+X2+X3+X4, data=tab9.1)
+
+summary(reg1)
+summary(reg1)$r.squared
+summary(reg1)$adj.r.squared
+
+## ---- ch9.surgical-lm2 --------
+
+reg2<-lm(logY~X1+X2+X3, data=tab9.1)
+
+summary(reg2)
+summary(reg2)$r.squared
+summary(reg2)$adj.r.squared
+
+## ---- ch9.surgical-sel ----------
+
+#AIC
+extractAIC(reg2)
+#BIC
+extractAIC(reg2, k = log(dim(tab9.1)[1]))
+#PRESS
+sum((reg2$residuals/(1-hatvalues(reg2)))^2)
+
+
+
+
+## ---- ch9.surgical-leaps ------------
+library(leaps)
+
+X<-cbind(1, tab9.1$X1, tab9.1$X2, tab9.1$X3, tab9.1$X4)
+logY<-tab9.1$logY
+
+outs <- leaps(X, logY, int = FALSE, method="Cp")
+head(outs$which)
+head(outs$Cp)
+
+plot(outs$size, outs$Cp, xlab = "p", ylab = expression(C[p]))
+
+
+## ---- ch9.surgical-leaps2 ------------
+outs <- leaps(X, logY, int = FALSE, method="adjr2")
+plot(outs$size, outs$adjr2,  xlab = "p", ylab = "adjr2")
+
+outs <- leaps(X, logY, int = FALSE, method="r2")
+plot(outs$size, outs$r2,    xlab = "p", ylab = "r2")
+
+
+## ---- ch9.surgical-regsubset --------------
+X<-tab9.1[,1:8]
+head(X) ## all eight predictors
+
+## ---- ch9.surgical-regsubset2 --------------
+subset<-regsubsets(X, logY,nbest=1)
+summary(subset)$which
+
+summary(subset)$rsq
+summary(subset)$rss
+summary(subset)$cp
+summary(subset)$bic
+
+## ---- ch9.surgical-step-aic ------------
+library(MASS)
+step <- step(reg1, direction="backward") 
+
+
+
+
+
+## ---- ch9.surgical-test ---------------
+test<-read.table("http://www.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%209%20Data%20Sets/CH09TA05.txt")
+names(test)<-c("X1","X2","X3","X4","X5","X6","X7","X8","Y","logY")
+head(test)
+dim(test)
+
+## ---- ch9.surgical-model ----------------
+reg1<-lm(logY~X1+X2+X3+X8, data=tab9.1)
+reg2<-lm(logY~X1+X2+X3+X6+X8, data=tab9.1)
+reg3<-lm(logY~X1+X2+X3+X5+X6+X8,data=tab9.1)
+
+
+
+reg1.new<-lm(logY~X1+X2+X3+X8, data=test)
+reg2.new<-lm(logY~X1+X2+X3+X6+X8, data=test)
+reg3.new<-lm(logY~X1+X2+X3+X5+X6+X8, data=test)
+
+coef(reg1)
+coef(reg1.new)
+
+## ---- ch9.surgical-MSE ------------------
+
+anova(reg1)
+
+MSE1<- sum((tab9.1$logY-predict(reg1, newdata=tab9.1))^2)/(54-5)
+MSE2<- sum((tab9.1$logY-predict(reg2, newdata=tab9.1))^2)/(54-6)
+MSE3<- sum((tab9.1$logY-predict(reg3, newdata=tab9.1))^2)/(54-7)
+
+MSE1;MSE2;MSE3
+
+## ---- ch9.surgical-MSPR -----------------------------------
+
+MSPR1<- sum((test$logY-predict(reg1, newdata=test))^2)/54
+MSPR2<- sum((test$logY-predict(reg2, newdata=test))^2)/54
+MSPR3<- sum((test$logY-predict(reg3, newdata=test))^2)/54
+
+MSPR1; MSPR2; MSPR3
+
+
+## ---- Chapter 10
+
+## ----ch10.ins ----
+
+ins<-read.table("https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%2010%20Data%20Sets/CH10TA01.txt")
+
+names(ins)<-c("X1","X2","Y")
+head(ins)
+dim(ins)
+
+## ----ch10.ins-lm ----
+fit<-lm(Y~X2+X1, data=ins)
+fit
+
+
+## ----ch10.ins-plot ----
+library(ggplot2)
+library(ggfortify)
+autoplot(fit)
+
+## ----ch10.ins-avp1 ----
+fit.Y<-lm(Y~X2, data=ins)
+fit.Y
+
+fit.X1<-lm(X1~X2, data=ins)
+fit.X1
+
+plot(resid(fit.Y)~resid(fit.X1))
+
+## ----ch10.ins-avp2 ----
+
+library(ggplot2)
+
+dat.add<-data.frame(x=resid(fit.X1), y=resid(fit.Y))
+g<- ggplot(dat.add, aes(x=x, y=y)) + geom_point()
+g+geom_smooth(method=lm, se=FALSE)+xlab("e(X1|X2)") +ylab("e(Y|X2)")
+
+## ----ch10.ins-avp3 ----
+
+library(car)
+avPlots(fit)
+
+
+## ----ch10.ins-avp4 ----
+fit2<-lm(Y~X2+X1+I(X1^2), data=ins)
+anova(fit2)
+
+
+
+## ----ch10.residual-ex1 ----
+ex<-data.frame(X1=c(14,19,12,11), X2=c(25,32,22,15), Y=c(301,327,246,187))
+
+fit<-lm(Y~X1+X2, data=ex)
+Yhat<-fitted.values(fit)
+Yhat
+
+e<-ex$Y-Yhat
+e
+
+X<-cbind(1, ex$X1, ex$X2)
+H<-X%*%solve(t(X)%*%X)%*%t(X)
+
+H
+
+hii<-diag(H)
+
+hii
+
+## ----ch10.residual-ex2 ----
+
+sigma.hat<-summary(fit)$sigma ## sigma hat (=root of MSE)
+
+s2.mat<-sigma.hat^2*(diag(1,4) - H)
+
+s2.mat
+
+
+## ----ch10.residual-ex3 ----
+
+c(H%*%ex$Y) # = Yhat 
+
+## ----ch10.leverage1 ----
+
+H
+
+rowSums(H)
+colSums(H)
+
+
+## ----ch10.influence ----
+
+bodyfat<-read.table(
+  "https://users.stat.ufl.edu/~rrandles/sta4210/Rclassnotes/data/textdatasets/KutnerData/Chapter%20%207%20Data%20Sets/CH07TA01.txt")
+names(bodyfat)<-c("X1","X2","X3","Y")
+head(bodyfat)
+
+fit<-lm(Y~X1+X2, data=bodyfat)
+
+head(influence.measures(fit)$infmat)
+
+## ----ch10.cook-plot ----
+library(olsrr)
+ols_plot_cooksd_chart(fit)
+
+## ----ch10.vif ----
+fit<-lm(scale(Y)~0+scale(X1)+scale(X2)+scale(X3), data=bodyfat) # three predictors in bodyfat example 
+
+
+library(car)
+vif(fit)
+cbind(coef(fit), vif(fit)) # table 10.5 
+
+
+```
